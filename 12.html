@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Unilever POS</title>
+<style>
+:root {
+--primary: #0057B8;
+--primary-soft: #eff6ff;
+--green: #10b981;
+--green-soft: #ecfdf5;
+--red: #ef4444;
+--red-soft: #fef2f2;
+--warn: #f59e0b;
+--text: #0f172a;
+--muted: #64748b;
+--border: #e2e8f0;
+--bg: #f8fafc;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg); color: var(--text); padding-bottom: 72px; font-size: 13px; }
+
+/* Minimal Top Bar */
+header { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 25; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; color: var(--primary); }
+.pill-badge { background: var(--primary-soft); color: var(--primary); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+.btn-top { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+/* Toast Notification */
+#toast { background: var(--text); color: #fff; text-align: center; padding: 7px 14px; font-size: 12px; font-weight: 600; display: none; position: fixed; top: 52px; left: 50%; transform: translateX(-50%); border-radius: 99px; z-index: 60; box-shadow: 0 4px 12px rgba(0,0,0,0.18); white-space: nowrap; }
+
+/* Views & Bottom Bar */
+.view { display: none; max-width: 480px; margin: 0 auto; padding: 10px; }
+.view.active { display: block; }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--border); display: flex; height: 56px; z-index: 30; max-width: 480px; margin: 0 auto; }
+.nav-btn { flex: 1; border: none; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.nav-btn.active { color: var(--primary); font-weight: 800; }
+.nav-btn .ico { font-size: 16px; margin-bottom: 2px; }
+
+/* Minimal Cards & Controls */
+.box { background: #fff; padding: 12px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
+.box-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+input[type="text"], input[type="number"] { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--bg); color: var(--text); font-weight: 600; outline: none; }
+input:focus { border-color: var(--primary); background: #fff; }
+.row { display: flex; gap: 6px; align-items: center; }
+.f-1 { flex: 1; }
+.f-2 { flex: 2; }
+
+/* 2-ROW HORIZONTAL SCROLLING PRODUCT GRID */
+.pos-scroll-wrap { position: relative; margin-bottom: 10px; }
+.pos-grid {
+display: grid;
+grid-template-rows: repeat(2, auto);
+grid-auto-flow: column;
+grid-auto-columns: 158px;
+gap: 7px;
+overflow-x: auto;
+padding: 2px 2px 8px 2px;
+scroll-snap-type: x proximity;
+-webkit-overflow-scrolling: touch;
+scrollbar-width: thin;
+}
+.pos-grid::-webkit-scrollbar { height: 5px; }
+.pos-grid::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 99px; }
+.pos-grid::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 99px; }
+
+.pos-item {
+scroll-snap-align: start;
+border: 1px solid var(--border);
+border-radius: 10px;
+padding: 8px;
+background: #fff;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+min-height: 108px;
+}
+.pos-item.selected { border: 2px solid var(--primary); background: var(--primary-soft); }
+.pos-name { font-size: 12px; font-weight: 700; line-height: 1.2; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pos-rate { font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 5px; }
+
+.unit-bar { display: flex; background: var(--bg); border-radius: 6px; padding: 2px; margin-bottom: 5px; border: 1px solid var(--border); }
+.u-btn { flex: 1; border: none; background: transparent; font-size: 10px; font-weight: 700; padding: 3px 0; border-radius: 4px; color: var(--muted); cursor: pointer; }
+.u-btn.active { background: var(--primary); color: #fff; }
+
+.qty-bar { display: flex; gap: 4px; }
+.q-btn { flex: 1; border: none; border-radius: 6px; padding: 6px 0; font-size: 12px; font-weight: 800; cursor: pointer; }
+.q-minus { background: var(--red-soft); color: var(--red); }
+.q-plus { background: var(--primary); color: #fff; }
+.q-plus5 { background: #dbeafe; color: var(--primary); }
+
+/* Order Receipt List */
+.line-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.line-item:last-child { border-bottom: none; }
+.qty-inline { width: 48px !important; padding: 4px !important; text-align: center; margin: 0 6px !important; background: #fff !important; }
+
+/* Minimal Payment Selector */
+.pay-pills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 8px 0; }
+.pm-btn { border: 1px solid var(--border); background: var(--bg); padding: 7px 2px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.pm-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.status-strip { display: flex; justify-content: space-between; padding: 7px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; margin: 6px 0; }
+.st-ok { background: var(--green-soft); color: #065f46; }
+.st-due { background: var(--red-soft); color: #991b1b; }
+
+/* Buttons & Double-Tap Confirmation State */
+.btn-main { width: 100%; border: none; padding: 11px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; background: var(--primary); color: #fff; margin-top: 6px; }
+.btn-save { background: var(--green); }
+.btn-mini { padding: 5px 9px; font-size: 11px; border-radius: 6px; border: none; font-weight: 700; cursor: pointer; transition: 0.15s; }
+.b-del { background: var(--red-soft); color: var(--red); }
+.b-edit { background: var(--primary-soft); color: var(--primary); }
+.b-pay { background: var(--green-soft); color: #065f46; }
+.confirm-armed { background: var(--red) !important; color: #fff !important; box-shadow: 0 0 0 2px #fca5a5; }
+
+/* Minimal Reconciliation Strip */
+.kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 10px; }
+.kpi-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; }
+.kpi-lbl { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+.kpi-val { font-size: 15px; font-weight: 800; margin-top: 2px; }
+
+.tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 4px; }
+.t-cash { background: var(--green-soft); color: #065f46; }
+.t-bank { background: var(--primary-soft); color: var(--primary); }
+.t-cred { background: var(--red-soft); color: var(--red); }
+
+/* Floating Mini Calculator */
+#calcModal { display: none; position: fixed; top: 48px; right: 10px; width: 240px; background: #0f172a; color: #fff; border-radius: 12px; padding: 10px; z-index: 50; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+#calcModal.open { display: block; }
+.c-screen { background: #1e293b; padding: 8px; border-radius: 8px; text-align: right; margin-bottom: 6px; font-family: monospace; }
+.c-hist { font-size: 10px; color: #94a3b8; min-height: 13px; }
+.c-main { font-size: 18px; font-weight: 700; color: #38bdf8; }
+.c-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.c-key { padding: 8px 0; border: none; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer; background: #334155; color: #fff; }
+.c-key.op { background: #0284c7; }
+.c-key.eq { background: var(--green); grid-column: span 2; }
+.c-key.clr { background: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+<div class="brand">
+<span>Unilever POS</span>
+<span id="badgeLines" class="pill-badge">0 Items</span>
+</div>
+<button type="button" class="btn-top" id="btnTogglePad">🔢 Calc</button>
+</header>
+
+<div id="toast">Saved</div>
+
+<!-- FLOATING QUICK CALCULATOR -->
+<div id="calcModal">
+<div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:11px; color:#94a3b8;">
+<span>Quick Math</span>
+<span id="btnClosePad" style="color:#f87171; cursor:pointer; font-weight:700;">✕</span>
+</div>
+<div class="c-screen">
+<div id="padExpr" class="c-hist"></div>
+<div id="padOut" class="c-main">0</div>
+</div>
+<div class="c-grid" id="padKeys">
+<button type="button" class="c-key clr" data-k="C">C</button>
+<button type="button" class="c-key" data-k="B">⌫</button>
+<button type="button" class="c-key op" data-k="%">%</button>
+<button type="button" class="c-key op" data-k="/">÷</button>
+<button type="button" class="c-key" data-k="7">7</button>
+<button type="button" class="c-key" data-k="8">8</button>
+<button type="button" class="c-key" data-k="9">9</button>
+<button type="button" class="c-key op" data-k="*">×</button>
+<button type="button" class="c-key" data-k="4">4</button>
+<button type="button" class="c-key" data-k="5">5</button>
+<button type="button" class="c-key" data-k="6">6</button>
+<button type="button" class="c-key op" data-k="-">−</button>
+<button type="button" class="c-key" data-k="1">1</button>
+<button type="button" class="c-key" data-k="2">2</button>
+<button type="button" class="c-key" data-k="3">3</button>
+<button type="button" class="c-key op" data-k="+">+</button>
+<button type="button" class="c-key" data-k="0">0</button>
+<button type="button" class="c-key" data-k=".">.</button>
+<button type="button" class="c-key eq" data-k="=">=</button>
+</div>
+</div>
+
+<!-- VIEW 1: POS & PAYMENT -->
+<main id="view-calc" class="view active">
+
+<!-- Search & Custom Item Bar -->
+<div class="row" style="margin-bottom:6px;">
+<input id="inpFilter" type="text" placeholder="🔍 Search or swipe products..." style="margin:0; background:#fff;">
+<button type="button" class="btn-top" id="btnToggleCustom" style="white-space:nowrap; padding:8px 10px;">+ Custom</button>
+</div>
+
+<!-- Collapsible Custom Item Box -->
+<div id="customBox" class="box" style="display:none; padding:10px;">
+<div class="row">
+<div class="f-2"><input id="cusName" type="text" placeholder="Item Name"></div>
+<div class="f-1"><input id="cusPrice" type="number" step="any" placeholder="Price"></div>
+<div class="f-1"><input id="cusQty" type="number" step="any" value="1"></div>
+<button type="button" class="btn-mini b-edit" id="btnAddCustom" style="padding:8px 10px;">Add</button>
+</div>
+</div>
+
+<!-- 2-Row Horizontal Swipe Product Grid -->
+<div class="pos-scroll-wrap">
+<div id="posGrid" class="pos-grid"></div>
+</div>
+
+<!-- Order & Payment Card -->
+<div class="box">
+<div class="box-head">
+<span id="lblReceiptTitle">Order Summary</span>
+<button type="button" class="btn-mini b-del" id="btnClearOrder">Clear</button>
+</div>
+
+<div id="receiptList"></div>
+
+<!-- Total Line -->
+<div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; margin-top:6px; border-top:1px solid var(--border); font-size:16px; font-weight:800; color:var(--primary);">
+<span>Total (<span id="outUnits">0</span>)</span>
+<span id="outGrand">0.00 ETB</span>
+</div>
+
+<!-- 1-Tap Payment Selector -->
+<div class="pay-pills" id="payModeBar">
+<button type="button" class="pm-btn active" data-pm="cash">💵 Cash</button>
+<button type="button" class="pm-btn" data-pm="transfer">🏦 Transfer</button>
+<button type="button" class="pm-btn" data-pm="split">⚖️ Split</button>
+<button type="button" class="pm-btn" data-pm="credit">⏳ Credit</button>
+</div>
+
+<!-- Smart Split Inputs -->
+<div id="splitInputsRow" class="row" style="display:none; margin-bottom:6px;">
+<div class="f-1">
+<span style="font-size:10px; color:var(--muted); font-weight:700;">💵 Cash Paid</span>
+<input id="inpCash" type="number" step="any" value="0">
+</div>
+<div class="f-1">
+<span style="font-size:10px; color:var(--muted); font-weight:700;">🏦 Transfer Paid</span>
+<input id="inpTransfer" type="number" step="any" value="0">
+</div>
+</div>
+
+<!-- Bank Reference -->
+<div id="bankNameRow" style="display:none; margin-bottom:6px;">
+<input id="inpBankRef" type="text" placeholder="Bank / Telebirr Ref (Optional)">
+</div>
+
+<!-- Live Payment Status -->
+<div id="creditBanner" class="status-strip st-ok">
+<span id="lblCreditStatus">✅ Paid in Cash</span>
+<span id="outCredit">0.00 ETB</span>
+</div>
+
+<!-- Shop Name & Save -->
+<input type="hidden" id="editOrderId" value="">
+<div class="row" style="margin-top:6px;">
+<input id="inpShop" type="text" placeholder="Shop / Customer Name" style="flex:1;">
+<button type="button" class="btn-main btn-save" id="btnSaveOrder" style="width:auto; margin:0; padding:9px 16px;">Save</button>
+</div>
+</div>
+</main>
+
+<!-- VIEW 2: HISTORY & DAILY TOTALS -->
+<main id="view-history" class="view">
+<div class="kpi-grid">
+<div class="kpi-card">
+<div class="kpi-lbl">Total Sales (<span id="sumCount">0</span>)</div>
+<div class="kpi-val" id="sumRev" style="color:var(--primary);">0.00</div>
+</div>
+<div class="kpi-card">
+<div class="kpi-lbl">💵 Cash in Hand</div>
+<div class="kpi-val" id="sumCash" style="color:var(--green);">0.00</div>
+</div>
+<div class="kpi-card">
+<div class="kpi-lbl">🏦 Bank Transfer</div>
+<div class="kpi-val" id="sumBank" style="color:#0284c7;">0.00</div>
+</div>
+<div class="kpi-card">
+<div class="kpi-lbl">⏳ Unpaid Credit</div>
+<div class="kpi-val" id="sumCredit" style="color:var(--red);">0.00</div>
+</div>
+</div>
+
+<div class="box" style="padding:8px 10px; font-size:11px; color:var(--muted);" id="sumMoved">
+No items moved yet today.
+</div>
+
+<div class="row" style="margin-bottom:8px;">
+<div class="row f-1" id="histFilterBar">
+<button type="button" class="pm-btn active f-1" data-hf="all">All Orders</button>
+<button type="button" class="pm-btn f-1" data-hf="credit">⏳ Unpaid Credit</button>
+</div>
+<button type="button" class="btn-mini b-del" id="btnWipeHistory" style="padding:7px 10px;">Reset All</button>
+</div>
+
+<div id="historyList"></div>
+</main>
+
+<!-- VIEW 3: PRODUCTS SETUP -->
+<main id="view-products" class="view">
+<div class="box">
+<div class="box-head" id="lblSkuForm">Add / Edit Product</div>
+<input type="hidden" id="editSkuId" value="">
+<input id="skuName" type="text" placeholder="Product Name (e.g. Omo 500g)" style="margin-bottom:6px;">
+<div class="row">
+<div class="f-2"><input id="skuPrice" type="number" step="any" placeholder="Carton Price (ETB)"></div>
+<div class="f-1"><input id="skuPack" type="number" step="1" value="24" placeholder="Pcs/Ctn"></div>
+<button type="button" class="btn-main" id="btnSaveSku" style="width:auto; margin:0; padding:8px 14px;">Save</button>
+</div>
+</div>
+
+<div class="box">
+<div class="box-head">Saved Price List</div>
+<div id="catalogList"></div>
+</div>
+</main>
+
+<!-- BOTTOM NAVIGATION -->
+<nav class="bottom-nav" id="bottomNav">
+<button type="button" class="nav-btn active" data-tab="calc">
+<span class="ico">🧮</span>
+<span>Calculator</span>
+</button>
+<button type="button" class="nav-btn" data-tab="history">
+<span class="ico">📊</span>
+<span id="navHistTxt">History (0)</span>
+</button>
+<button type="button" class="nav-btn" data-tab="products">
+<span class="ico">📦</span>
+<span id="navProdTxt">Products (6)</span>
+</button>
+</nav>
+
+<script>
+(function() {
+var products = [
+{ id: 101, name: "Omo Multiactive 500g", price: 2400, pack: 24, unit: "ctn" },
+{ id: 102, name: "Sunlight Powder 1kg", price: 2220, pack: 12, unit: "ctn" },
+{ id: 103, name: "Lifebuoy Soap 125g", price: 2880, pack: 72, unit: "ctn" },
+{ id: 104, name: "Knorr Chicken Cube", price: 1350, pack: 30, unit: "ctn" },
+{ id: 105, name: "Signal Toothpaste", price: 1920, pack: 24, unit: "ctn" },
+{ id: 106, name: "Sunlight Bar Soap", price: 1500, pack: 50, unit: "ctn" }
+ ];
+var history = [];
+var cart = [];
+var payMode = "cash";
+var histFilter = "all";
+var padStr = "";
+
+function loadStorage() {
+try {
+var p = localStorage.getItem("ul_pos_prod_v7");
+var h = localStorage.getItem("ul_pos_hist_v7");
+if (p) products = JSON.parse(p);
+if (h) history = JSON.parse(h);
+} catch (err) {}
+}
+
+function saveStorage() {
+try {
+localStorage.setItem("ul_pos_prod_v7", JSON.stringify(products));
+localStorage.setItem("ul_pos_hist_v7", JSON.stringify(history));
+} catch (err) {}
+}
+
+function notify(msg) {
+var el = document.getElementById("toast");
+el.textContent = msg;
+el.style.display = "block";
+setTimeout(function() { el.style.display = "none"; }, 1800);
+}
+
+// 2-Tap Safety Guard (Prevents accidental clicks without browser popups)
+function requireDoubleTap(btn, confirmText, actionFn) {
+if (btn.getAttribute("data-armed") === "1") {
+btn.removeAttribute("data-armed");
+btn.classList.remove("confirm-armed");
+actionFn();
+} else {
+var origText = btn.textContent;
+btn.setAttribute("data-armed", "1");
+btn.classList.add("confirm-armed");
+btn.textContent = confirmText || "Sure?";
+notify("Tap again to confirm");
+setTimeout(function() {
+if (btn.getAttribute("data-armed") === "1") {
+btn.removeAttribute("data-armed");
+btn.classList.remove("confirm-armed");
+btn.textContent = origText;
+}
+}, 3000);
+}
+}
+
+function getUnitRate(p) {
+var pk = p.pack || 1;
+if (p.unit === "pc") return { label: "Pc", rate: p.price / pk };
+if (p.unit === "doz") return { label: "Doz", rate: (p.price / pk) * 12 };
+return { label: "Ctn", rate: p.price };
+}
+
+function switchView(tabName) {
+["calc", "history", "products"].forEach(function(v) {
+document.getElementById("view-" + v).classList.toggle("active", v === tabName);
+});
+document.querySelectorAll("#bottomNav .nav-btn").forEach(function(b) {
+b.classList.toggle("active", b.getAttribute("data-tab") === tabName);
+});
+render();
+}
+
+function calcOrderTotals() {
+var grand = 0, units = 0;
+cart.forEach(function(c) { grand += c.total; units += c.qty; });
+return { grand: Math.round(grand * 100) / 100, units: units };
+}
+
+function syncPaymentInputs(changedInput) {
+var grand = calcOrderTotals().grand;
+var cashEl = document.getElementById("inpCash");
+var bankEl = document.getElementById("inpTransfer");
+
+document.getElementById("splitInputsRow").style.display = (payMode === "split") ? "flex" : "none";
+
+if (payMode === "cash") {
+cashEl.value = grand; bankEl.value = 0;
+} else if (payMode === "transfer") {
+cashEl.value = 0; bankEl.value = grand;
+} else if (payMode === "credit") {
+cashEl.value = 0; bankEl.value = 0;
+} else if (payMode === "split" && changedInput === "cash") {
+var cVal = Math.max(parseFloat(cashEl.value) || 0, 0);
+bankEl.value = Math.max(Math.round((grand - cVal) * 100) / 100, 0);
+}
+updateCreditDisplay(grand);
+}
+
+function updateCreditDisplay(grand) {
+var cVal = Math.max(parseFloat(document.getElementById("inpCash").value) || 0, 0);
+var bVal = Math.max(parseFloat(document.getElementById("inpTransfer").value) || 0, 0);
+var credit = Math.max(Math.round((grand - (cVal + bVal)) * 100) / 100, 0);
+
+document.getElementById("bankNameRow").style.display = bVal > 0 ? "block" : "none";
+
+var banner = document.getElementById("creditBanner");
+var statusLbl = document.getElementById("lblCreditStatus");
+var outCred = document.getElementById("outCredit");
+
+if (credit > 0) {
+banner.className = "status-strip st-due";
+statusLbl.textContent = "⏳ Credit (Pay Later)";
+outCred.textContent = credit.toFixed(2) + " ETB";
+} else {
+banner.className = "status-strip st-ok";
+statusLbl.textContent = payMode === "transfer" ? "✅ Paid via Transfer" : (payMode === "split" ? "✅ Split Paid" : "✅ Paid in Cash");
+outCred.textContent = grand.toFixed(2) + " ETB";
+}
+}
+
+function setPayMode(mode) {
+payMode = mode;
+document.querySelectorAll("#payModeBar .pm-btn").forEach(function(b) {
+b.classList.toggle("active", b.getAttribute("data-pm") === mode);
+});
+var grand = calcOrderTotals().grand;
+if (mode === "split") {
+var half = Math.round((grand / 2) * 100) / 100;
+document.getElementById("inpCash").value = half;
+document.getElementById("inpTransfer").value = Math.round((grand - half) * 100) / 100;
+}
+syncPaymentInputs();
+}
+
+function render() {
+var totals = calcOrderTotals();
+document.getElementById("badgeLines").textContent = cart.length + " Items";
+document.getElementById("navHistTxt").textContent = "History (" + history.length + ")";
+document.getElementById("navProdTxt").textContent = "Products (" + products.length + ")";
+
+// 1. 2-Row Horizontal POS Grid
+var posGrid = document.getElementById("posGrid");
+posGrid.innerHTML = "";
+var q = (document.getElementById("inpFilter").value || "").toLowerCase();
+
+products.forEach(function(p) {
+if (q && p.name.toLowerCase().indexOf(q) === -1) return;
+var u = getUnitRate(p);
+var key = p.id + "_" + u.label;
+var inCartQty = 0;
+cart.forEach(function(c) { if (c.key === key) inCartQty = c.qty; });
+
+var card = document.createElement("div");
+card.className = "pos-item" + (inCartQty ? " selected" : "");
+
+var top = document.createElement("div");
+var title = document.createElement("div");
+title.className = "pos-name";
+title.textContent = (inCartQty ? "(" + inCartQty + ") " : "") + p.name;
+
+var rate = document.createElement("div");
+rate.className = "pos-rate";
+rate.textContent = u.rate.toFixed(2) + " / " + u.label;
+
+var uBar = document.createElement("div");
+uBar.className = "unit-bar";
+[["ctn", "Ctn"], ["doz", "Doz"], ["pc", "Pc"]].forEach(function(pair) {
+var b = document.createElement("button");
+b.type = "button";
+b.className = "u-btn" + ((p.unit || "ctn") === pair[0] ? " active" : "");
+b.textContent = pair[1];
+b.onclick = function() { p.unit = pair[0]; render(); };
+uBar.appendChild(b);
+});
+
+top.appendChild(title);
+top.appendChild(rate);
+top.appendChild(uBar);
+
+var qBar = document.createElement("div");
+qBar.className = "qty-bar";
+[[-1, "-1", "q-minus"], [1, "+1", "q-plus"], [5, "+5", "q-plus5"]].forEach(function(act) {
+var qb = document.createElement("button");
+qb.type = "button";
+qb.className = "q-btn " + act[2];
+qb.textContent = act[1];
+qb.onclick = function() { adjustCartItem(p, act[0]); };
+qBar.appendChild(qb);
+});
+
+card.appendChild(top);
+card.appendChild(qBar);
+posGrid.appendChild(card);
+});
+
+// 2. Current Order Lines
+var rList = document.getElementById("receiptList");
+rList.innerHTML = "";
+if (cart.length === 0) {
+var empty = document.createElement("div");
+empty.style.cssText = "text-align:center; color:#94a3b8; padding:8px; font-size:12px;";
+empty.textContent = "Swipe & tap products above to add";
+rList.appendChild(empty);
+} else {
+cart.forEach(function(item) {
+var row = document.createElement("div");
+row.className = "line-item";
+
+var left = document.createElement("div");
+left.style.flex = "1";
+left.innerHTML = "<div style='font-weight:700;'>" + item.name + "</div><div style='font-size:11px;color:#64748b;'>@ " + item.price.toFixed(2) + "</div>";
+
+var right = document.createElement("div");
+right.className = "row";
+
+var qIn = document.createElement("input");
+qIn.type = "number";
+qIn.step = "any";
+qIn.className = "qty-inline";
+qIn.value = item.qty;
+qIn.onchange = function() {
+var val = parseFloat(this.value);
+if (isNaN(val) || val <= 0) cart = cart.filter(function(x) { return x.id !== item.id; });
+else { item.qty = val; item.total = val * item.price; }
+render();
+};
+
+var tot = document.createElement("strong");
+tot.style.cssText = "min-width:60px; text-align:right;";
+tot.textContent = item.total.toFixed(2);
+
+var del = document.createElement("button");
+del.type = "button";
+del.className = "btn-mini b-del";
+del.textContent = "✕";
+del.onclick = function() {
+requireDoubleTap(this, "Del?", function() {
+cart = cart.filter(function(x) { return x.id !== item.id; });
+render();
+});
+};
+
+right.appendChild(qIn);
+right.appendChild(tot);
+right.appendChild(del);
+row.appendChild(left);
+row.appendChild(right);
+rList.appendChild(row);
+});
+}
+
+document.getElementById("outUnits").textContent = totals.units;
+document.getElementById("outGrand").textContent = totals.grand.toFixed(2) + " ETB";
+syncPaymentInputs();
+
+// 3. Products Catalog
+var cList = document.getElementById("catalogList");
+cList.innerHTML = "";
+products.forEach(function(p) {
+var row = document.createElement("div");
+row.className = "line-item";
+
+var info = document.createElement("div");
+info.innerHTML = "<div style='font-weight:700;'>" + p.name + "</div><div style='font-size:11px;color:#64748b;'>" + p.price.toFixed(2) + " ETB (" + (p.pack || 1) + " pcs/ctn)</div>";
+
+var acts = document.createElement("div");
+acts.className = "row";
+
+var bEdit = document.createElement("button");
+bEdit.type = "button";
+bEdit.className = "btn-mini b-edit";
+bEdit.textContent = "Edit";
+bEdit.onclick = function() {
+document.getElementById("skuName").value = p.name;
+document.getElementById("skuPrice").value = p.price;
+document.getElementById("skuPack").value = p.pack || 24;
+document.getElementById("editSkuId").value = p.id;
+document.getElementById("lblSkuForm").textContent = "Edit Product";
+window.scrollTo(0, 0);
+};
+
+var bDel = document.createElement("button");
+bDel.type = "button";
+bDel.className = "btn-mini b-del";
+bDel.textContent = "✕";
+bDel.onclick = function() {
+requireDoubleTap(this, "Sure?", function() {
+products = products.filter(function(x) { return x.id !== p.id; });
+saveStorage(); render(); notify("Product Deleted");
+});
+};
+
+acts.appendChild(bEdit);
+acts.appendChild(bDel);
+row.appendChild(info);
+row.appendChild(acts);
+cList.appendChild(row);
+});
+
+// 4. History & Reconciliation
+var hList = document.getElementById("historyList");
+hList.innerHTML = "";
+var dayRev = 0, dayCash = 0, dayBank = 0, dayCredit = 0, tally = {};
+
+history.forEach(function(rec) {
+dayRev += rec.grand;
+dayCash += (rec.cash || 0);
+dayBank += (rec.transfer || 0);
+dayCredit += (rec.credit || 0);
+rec.items.forEach(function(ln) { tally[ln.name] = (tally[ln.name] || 0) + ln.qty; });
+});
+
+var filteredHist = history.filter(function(rec) {
+return histFilter === "credit" ? (rec.credit || 0) > 0 : true;
+});
+
+if (filteredHist.length === 0) {
+var hEmpty = document.createElement("div");
+hEmpty.className = "box";
+hEmpty.style.cssText = "text-align:center; color:#94a3b8; padding:16px;";
+hEmpty.textContent = histFilter === "credit" ? "🎉 No unpaid credit!" : "No saved orders yet.";
+hList.appendChild(hEmpty);
+} else {
+filteredHist.forEach(function(rec) {
+var box = document.createElement("div");
+box.className = "box";
+if ((rec.credit || 0) > 0) box.style.borderColor = "#fca5a5";
+
+var head = document.createElement("div");
+head.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid var(--border);";
+var hLeft = document.createElement("div");
+hLeft.innerHTML = "<strong>" + rec.shop + "</strong><div style='font-size:10px;color:#64748b;'>" + rec.date + (rec.bankRef ? " • " + rec.bankRef : "") + "</div>";
+
+var hRight = document.createElement("div");
+hRight.className = "row";
+
+if ((rec.credit || 0) > 0) {
+var btnPaid = document.createElement("button");
+btnPaid.type = "button";
+btnPaid.className = "btn-mini b-pay";
+btnPaid.textContent = "✓ Paid";
+btnPaid.onclick = function() {
+requireDoubleTap(this, "Paid?", function() {
+rec.cash = (rec.cash || 0) + rec.credit;
+rec.credit = 0;
+saveStorage(); render(); notify("Marked Paid");
+});
+};
+hRight.appendChild(btnPaid);
+}
+
+var btnRe = document.createElement("button");
+btnRe.type = "button";
+btnRe.className = "btn-mini b-edit";
+btnRe.textContent = "Edit";
+btnRe.onclick = function() {
+cart = JSON.parse(JSON.stringify(rec.items));
+document.getElementById("inpShop").value = rec.shop;
+document.getElementById("editOrderId").value = rec.id;
+document.getElementById("inpBankRef").value = rec.bankRef || "";
+setPayMode("split");
+document.getElementById("inpCash").value = rec.cash || 0;
+document.getElementById("inpTransfer").value = rec.transfer || 0;
+document.getElementById("lblReceiptTitle").textContent = "Editing: " + rec.shop;
+switchView("calc");
+};
+
+var btnCp = document.createElement("button");
+btnCp.type = "button";
+btnCp.className = "btn-mini b-edit";
+btnCp.textContent = "Copy";
+btnCp.onclick = function() {
+var lines = [rec.shop + " (" + rec.date + ")", "----------------"];
+rec.items.forEach(function(i) { lines.push(i.name + ": " + i.qty + " x " + i.price.toFixed(2) + " = " + i.total.toFixed(2)); });
+lines.push("TOTAL: " + rec.grand.toFixed(2) + " ETB");
+if (rec.cash > 0) lines.push("Cash: " + rec.cash.toFixed(2));
+if (rec.transfer > 0) lines.push("Transfer: " + rec.transfer.toFixed(2));
+if (rec.credit > 0) lines.push("CREDIT DUE: " + rec.credit.toFixed(2));
+if (navigator.clipboard) navigator.clipboard.writeText(lines.join("\n"));
+notify("Copied!");
+};
+
+var btnRm = document.createElement("button");
+btnRm.type = "button";
+btnRm.className = "btn-mini b-del";
+btnRm.textContent = "✕";
+btnRm.onclick = function() {
+requireDoubleTap(this, "Sure?", function() {
+history = history.filter(function(x) { return x.id !== rec.id; });
+saveStorage(); render(); notify("Receipt Deleted");
+});
+};
+
+hRight.appendChild(btnRe);
+hRight.appendChild(btnCp);
+hRight.appendChild(btnRm);
+head.appendChild(hLeft);
+head.appendChild(hRight);
+box.appendChild(head);
+
+rec.items.forEach(function(ln) {
+var lRow = document.createElement("div");
+lRow.style.cssText = "display:flex; justify-content:space-between; font-size:12px; padding:2px 0; color:#334155;";
+lRow.innerHTML = "<span>" + ln.name + " <b>x" + ln.qty + "</b></span><span>" + ln.total.toFixed(2) + "</span>";
+box.appendChild(lRow);
+});
+
+var foot = document.createElement("div");
+foot.style.cssText = "border-top:1px solid var(--border); margin-top:6px; padding-top:6px; display:flex; justify-content:space-between; align-items:center;";
+var tags = document.createElement("div");
+if ((rec.cash || 0) > 0) tags.innerHTML += "<span class='tag t-cash'>Cash: " + rec.cash.toFixed(0) + "</span>";
+if ((rec.transfer || 0) > 0) tags.innerHTML += "<span class='tag t-bank'>Bank: " + rec.transfer.toFixed(0) + "</span>";
+if ((rec.credit || 0) > 0) tags.innerHTML += "<span class='tag t-cred'>Credit: " + rec.credit.toFixed(0) + "</span>";
+
+var fTot = document.createElement("strong");
+fTot.style.color = "var(--primary)";
+fTot.textContent = rec.grand.toFixed(2) + " ETB";
+
+foot.appendChild(tags);
+foot.appendChild(fTot);
+box.appendChild(foot);
+hList.appendChild(box);
+});
+}
+
+document.getElementById("sumRev").textContent = dayRev.toFixed(2);
+document.getElementById("sumCash").textContent = dayCash.toFixed(2);
+document.getElementById("sumBank").textContent = dayBank.toFixed(2);
+document.getElementById("sumCredit").textContent = dayCredit.toFixed(2);
+document.getElementById("sumCount").textContent = history.length;
+
+var tKeys = Object.keys(tally);
+document.getElementById("sumMoved").textContent = tKeys.length
+? "Moved: " + tKeys.map(function(k) { return k + " (" + tally[k] + ")"; }).join(" • ")
+: "No items moved yet today.";
+}
+
+function adjustCartItem(prod, delta) {
+var u = getUnitRate(prod);
+var key = prod.id + "_" + u.label;
+var existing = null;
+cart.forEach(function(c) { if (c.key === key) existing = c; });
+
+if (existing) {
+existing.qty += delta;
+existing.total = existing.qty * existing.price;
+cart = cart.filter(function(c) { return c.qty > 0; });
+} else if (delta > 0) {
+cart.push({ id: Date.now() + Math.random(), key: key, name: prod.name + " [" + u.label + "]", price: u.rate, qty: delta, total: u.rate * delta });
+}
+render();
+}
+
+// Event Listeners
+document.getElementById("bottomNav").onclick = function(e) {
+var btn = e.target.closest(".nav-btn");
+if (btn) switchView(btn.getAttribute("data-tab"));
+};
+
+document.getElementById("btnToggleCustom").onclick = function() {
+var box = document.getElementById("customBox");
+box.style.display = box.style.display === "none" ? "block" : "none";
+};
+
+document.getElementById("payModeBar").onclick = function(e) {
+var btn = e.target.closest(".pm-btn");
+if (btn) setPayMode(btn.getAttribute("data-pm"));
+};
+
+document.getElementById("histFilterBar").onclick = function(e) {
+var btn = e.target.closest(".pm-btn");
+if (!btn) return;
+histFilter = btn.getAttribute("data-hf");
+document.querySelectorAll("#histFilterBar .pm-btn").forEach(function(b) {
+b.classList.toggle("active", b.getAttribute("data-hf") === histFilter);
+});
+render();
+};
+
+document.getElementById("inpCash").oninput = function() { syncPaymentInputs("cash"); };
+document.getElementById("inpTransfer").oninput = function() { syncPaymentInputs("transfer"); };
+document.getElementById("inpFilter").oninput = render;
+
+document.getElementById("btnTogglePad").onclick = function() { document.getElementById("calcModal").classList.toggle("open"); };
+document.getElementById("btnClosePad").onclick = function() { document.getElementById("calcModal").classList.remove("open"); };
+
+document.getElementById("padKeys").onclick = function(e) {
+var k = e.target.getAttribute("data-k");
+if (!k) return;
+var out = document.getElementById("padOut"), exp = document.getElementById("padExpr");
+if (k === "C") { padStr = ""; out.textContent = "0"; exp.textContent = ""; }
+else if (k === "B") { padStr = padStr.slice(0, -1); out.textContent = padStr || "0"; }
+else if (k === "=") {
+try {
+var res = Function('"use strict";return (' + padStr.replace(/%/g, "/100") + ')')();
+exp.textContent = padStr + " =";
+padStr = String(Math.round(res * 100) / 100);
+out.textContent = padStr;
+} catch (err) { out.textContent = "Err"; padStr = ""; }
+} else { padStr += k; out.textContent = padStr; }
+};
+
+document.getElementById("btnAddCustom").onclick = function() {
+var n = document.getElementById("cusName").value.trim();
+var p = parseFloat(document.getElementById("cusPrice").value);
+var q = parseFloat(document.getElementById("cusQty").value);
+if (!n || isNaN(p) || isNaN(q) || q <= 0) return notify("Enter Name & Price");
+cart.push({ id: Date.now() + Math.random(), key: "cus_" + Date.now(), name: n, price: p, qty: q, total: p * q });
+document.getElementById("cusName").value = "";
+document.getElementById("cusPrice").value = "";
+document.getElementById("cusQty").value = "1";
+document.getElementById("customBox").style.display = "none";
+render();
+};
+
+function resetCurrentCart() {
+cart = [];
+document.getElementById("editOrderId").value = "";
+document.getElementById("inpShop").value = "";
+document.getElementById("inpBankRef").value = "";
+document.getElementById("lblReceiptTitle").textContent = "Order Summary";
+setPayMode("cash");
+render();
+}
+
+document.getElementById("btnClearOrder").onclick = function() {
+if (cart.length === 0) return;
+requireDoubleTap(this, "Sure?", function() {
+resetCurrentCart();
+notify("Cleared");
+});
+};
+
+document.getElementById("btnSaveOrder").onclick = function() {
+if (cart.length === 0) return notify("Add products first");
+var t = calcOrderTotals();
+var cVal = Math.max(parseFloat(document.getElementById("inpCash").value) || 0, 0);
+var bVal = Math.max(parseFloat(document.getElementById("inpTransfer").value) || 0, 0);
+var credVal = Math.max(Math.round((t.grand - (cVal + bVal)) * 100) / 100, 0);
+var shop = document.getElementById("inpShop").value.trim();
+
+if (credVal > 0 && !shop) return notify("Enter Shop Name for Credit!");
+if (!shop) shop = "Walk-in Shop";
+
+var now = new Date();
+var editId = document.getElementById("editOrderId").value;
+var rec = {
+id: editId ? parseFloat(editId) : Date.now(),
+shop: shop,
+date: now.toLocaleDateString() + " " + now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+items: JSON.parse(JSON.stringify(cart)),
+grand: t.grand,
+cash: cVal,
+transfer: bVal,
+credit: credVal,
+bankRef: document.getElementById("inpBankRef").value.trim()
+};
+
+if (editId) history = history.map(function(h) { return h.id === rec.id ? rec : h; });
+else history.unshift(rec);
+
+saveStorage();
+resetCurrentCart();
+switchView("history");
+notify("Order Saved");
+};
+
+document.getElementById("btnWipeHistory").onclick = function() {
+if (history.length === 0) return;
+requireDoubleTap(this, "Wipe All?", function() {
+history = []; saveStorage(); render(); notify("History Reset");
+});
+};
+
+document.getElementById("btnSaveSku").onclick = function() {
+var n = document.getElementById("skuName").value.trim();
+var p = parseFloat(document.getElementById("skuPrice").value);
+var pk = parseInt(document.getElementById("skuPack").value, 10) || 1;
+var editId = document.getElementById("editSkuId").value;
+if (!n || isNaN(p)) return notify("Enter Name & Price");
+
+if (editId) {
+var idNum = parseFloat(editId);
+products.forEach(function(x) { if (x.id === idNum) { x.name = n; x.price = p; x.pack = pk; } });
+document.getElementById("editSkuId").value = "";
+document.getElementById("lblSkuForm").textContent = "Add / Edit Product";
+} else {
+products.unshift({ id: Date.now(), name: n, price: p, pack: pk, unit: "ctn" });
+}
+document.getElementById("skuName").value = "";
+document.getElementById("skuPrice").value = "";
+saveStorage(); render(); notify("Product Saved");
+};
+
+loadStorage();
+render();
+})();
+</script>
+</body>
+</html>
